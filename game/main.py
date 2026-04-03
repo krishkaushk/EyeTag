@@ -3,7 +3,6 @@
 import pygame
 import math
 import random
-import sys
 from game.config import *
 from game.entities import Ship, Bullet, Enemy
 from game.renderer import Renderer
@@ -47,22 +46,7 @@ class Game:
 
 
     def run_calibration(self):
-            # Show instructions screen first
-            waiting = True
-            while waiting:
-                self.renderer.draw_calibration_screen()
-                pygame.display.flip()
-
-                for event in pygame.event.get():
-                    if event.type == pygame.QUIT:
-                        pygame.quit()
-                        sys.exit()
-                    if event.type == pygame.KEYDOWN:
-                        if event.key == pygame.K_SPACE:
-                            waiting = False
-
-            # Run the actual EyeTrax calibration
-            self.gaze.calibrate()
+        self.gaze.calibrate(self.screen)
 
     def update_gaze(self):
             coords = self.gaze.get_coords()

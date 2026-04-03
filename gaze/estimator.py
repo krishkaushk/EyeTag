@@ -1,31 +1,26 @@
 # Estimates gaze for eye tracking with eyetrax
 
 import cv2
-from eyetrax import GazeEstimator
-from eyetrax.calibration.nine_point import run_9_point_calibration
-from eyetrax.calibration.lissajous import run_lissajous_calibration  # alternative
+from gaze.features import extract_features
+from gaze.calibration import Calibrator
 from eyetrax.filters import KalmanSmoother
+from game.config import SCREEN_WIDTH, SCREEN_HEIGHT
 
 class GazeTracker:
     def __init__(self):
-        self.estimator = GazeEstimator()
         self.cap = cv2.VideoCapture(0)
+        self.model = None
         self.last_x = None
         self.last_y = None
-        self.calibrated = False
         self._smoother = KalmanSmoother()
 
-    def calibrate(self):
-        # Pre-anchor the window at the top-left corner before eyetrax creates it,
-        # preventing the slight rightward offset on macOS.
-        cv2.namedWindow("Calibration", cv2.WINDOW_NORMAL)
-        cv2.moveWindow("Calibration", 0, 0)
-        run_9_point_calibration(self.estimator)
-        # run_lissajous_calibration(self.estimator)  # swap in for smoother coverage
+    def calibrate(self, screen):
+        calibrator = Calibrator(screen, self.cap)
+        self.model = calibrator.run()
         self.calibrated = True
 
     def get_coords(self):
-        if not self.calibrated:
+        if self.model is None:
             return None
 
         ret, frame = self.cap.read()
@@ -34,38 +29,33 @@ class GazeTracker:
             return None
 
         try:
-            features, blink = self.estimator.extract_features(frame)
+            features, is_blinking = extract_features(frame)
 
-            if features is None or blink:
+            
+            if features is None or is_blinking:
                 return self._last_known()
 
-            x, y = self.estimator.predict([features])[0]
+            prediction = self.model.predict([features])
+            x = int(prediction[0][0])
+            y = int(prediction[0][1])
 
-            sx, sy = self._smoother.step(int(x), int(y))
-            self.last_x = sx
-            self.last_y = sy
+            x = max(0, min(x, SCREEN_WIDTH))
+            y = max(0, min(y, SCREEN_HEIGHT))
 
-            return (self.last_x, self.last_y)
+            self.last_x = x
+            self.last_y = y
 
-        except Exception:
+            return (x, y)
+
+        except Exception as e:
+            print(f"Prediction error: {e}")
             return self._last_known()
-        
     
     def _last_known(self):
         if self.last_x is not None and self.last_y is not None:
             return (self.last_x, self.last_y)
         return None
-    
 
-    def save(self, path="gaze_model.pkl"):
-        self.estimator.save_model(path)
-
-    def load(self, path="gaze_model.pkl"):
-        try:
-            self.estimator.load_model(path)
-            self.calibrated = True
-        except Exception:
-            print("No saved calibration found - please calibrate")
 
 
     def release(self):
