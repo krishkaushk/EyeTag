@@ -42,6 +42,8 @@ class GazeTracker:
             x = max(0, min(x, SCREEN_WIDTH))
             y = max(0, min(y, SCREEN_HEIGHT))
 
+            x, y = self._smoother.step(x, y)
+
             self.last_x = x
             self.last_y = y
 
