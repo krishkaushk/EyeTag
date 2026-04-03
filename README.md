@@ -1,14 +1,26 @@
 # EyeTag
 
-An eye-tracking arcade shooter. Look at enemies to aim, your gaze is the crosshair.
+An eye-tracking arcade shooter. Your gaze is the crosshair — look at enemies to aim, bullets fire automatically toward where you're looking.
 
 ## How it works
 
-Your webcam tracks your eye position in real time. A green crosshair follows your gaze, and bullets fire automatically from the center of the screen toward wherever you're looking. Enemies spawn from the edges and move toward you — shoot them before they reach the center.
+**Pipeline:**
+1. Webcam frame → MediaPipe FaceLandmarker (478 landmarks)
+2. Extract 22-feature vector: iris position relative to eye corners (×2 eyes), eye outline landmarks, Eye Aspect Ratio (EAR) values
+3. Ridge regression maps features → screen (x, y)
+4. KalmanSmoother filters jitter frame-to-frame
+5. `atan2(gaze - center)` aims bullets from the ship at screen center
 
-Each wave gets faster and spawns enemies more frequently. Game over when an enemy reaches the center.
+Calibration trains the regression model fresh on each launch/
 
-**Controls:** Eyes to aim — `R` to restart — `ESC` to quit
+## Calibration
+
+9-point calibration: center → corners → edges. For each dot, ~2s of webcam frames are collected (blink frames discarded). Ridge regression is fit on the 500+ sample dataset.
+
+**Tips:**
+- Keep your head still — model assumes fixed head position
+- Look at the center of each dot
+- Good, even lighting helps landmark detection
 
 ## Setup
 
@@ -17,38 +29,12 @@ pip install -r requirements.txt
 python -m game.main
 ```
 
-Requires a webcam. Tested on macOS.
+Requires a webcam. Calibration runs automatically on launch.
 
-## Calibration
+## Stack
 
-Before the game starts, you'll go through eye calibration. The screen first detects your face and shows a countdown, then presents calibration targets to follow with your eyes while keeping your head still.
-
-**9-point calibration** (default) — 9 fixed dots in a 3×3 grid, ~15 seconds total. You look at each dot while a progress ring fills, then the model trains. Fast and reliable.
-
-
-Switch to Lissajous calibration (follow a moving dot) by commenting out the 9-point method and uncommenting the lissajous as seen in esimator.py:
-
-```python
-run_9_point_calibration(self.estimator)
-# run_lissajous_calibration(self.estimator)
-```
-
-(9-point I find better)
-
-**Tips for good calibration:**
-- Keep your head still — the model assumes a fixed head position
-- Look directly at the center of each dot, not around it
-- Good lighting on your face helps MediaPipe detect landmarks reliably
-
-
-## Kalman smoothing
-
-Raw gaze predictions are noisy and eyes naturally tremble slightly even when holding still, and the landmark detector adds frame-to-frame variation. Without smoothing, the crosshair jitters constantly.
-
-
-## Dependencies
-
-- [eyetrax](https://github.com/ck-zhang/EyeTrax) — gaze estimation and calibration
-- pygame — game loop and rendering
-- OpenCV + MediaPipe — video capture and face landmarks
-- scikit-learn — regression model for gaze prediction
+- **MediaPipe** — face landmark detection (FaceLandmarker Tasks API)
+- **scikit-learn** — Ridge regression for gaze-to-screen mapping
+- **eyetrax** — KalmanSmoother for gaze stabilization
+- **OpenCV** — webcam capture
+- **pygame** — game loop and rendering

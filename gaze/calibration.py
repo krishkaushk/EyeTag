@@ -51,9 +51,6 @@ class Calibrator:
                               (x, y), current_radius, 2)
 
         # Instructions at top
-        msg = self.font_small.render(
-            "STARE AT THE DOT — KEEP HEAD STILL", True, (255, 255, 255))
-        self.screen.blit(msg, (SCREEN_WIDTH // 2 - msg.get_width() // 2, 20))
 
         pygame.display.flip()
 
@@ -151,6 +148,8 @@ class Calibrator:
                     if event.key == pygame.K_SPACE:
                         waiting = False
 
+        time.sleep(0.5)
+
         # Show countdown before first dot
         for i in range(3, 0, -1):
             self.screen.fill((0, 0, 0))
@@ -167,10 +166,9 @@ class Calibrator:
             screen_x = int(fx * SCREEN_WIDTH)
             screen_y = int(fy * SCREEN_HEIGHT)
 
-            # Brief flash between dots
-            self.screen.fill((0, 0, 0))
-            pygame.display.flip()
-            time.sleep(0.4)
+            # Show static dot before collection starts — gives eye time to travel there
+            self.draw_dot(screen_x, screen_y, 1.0, 0)
+            time.sleep(0.8)
 
             # Collect data for this dot
             self.collect_dot(screen_x, screen_y)
