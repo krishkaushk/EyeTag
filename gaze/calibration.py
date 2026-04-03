@@ -8,6 +8,7 @@ from gaze.features import extract_features
 from game.config import SCREEN_WIDTH, SCREEN_HEIGHT
 
 DURATION = 2.0
+ALPHA_VAL = 0.2
 
 CALIBRATION_POINTS = [
     (0.1, 0.1),   # top left
@@ -104,7 +105,7 @@ class Calibrator:
         print(f"Training on {len(X_array)} samples...")
 
         # Create and train the Ridge regression model
-        self.model = Ridge(alpha=1.0)
+        self.model = Ridge(alpha=ALPHA_VAL)
         self.model.fit(X_array, Y_array)
 
         print("Training complete")
