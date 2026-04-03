@@ -2,6 +2,9 @@
 
 import cv2
 from eyetrax import GazeEstimator
+from eyetrax.calibration.nine_point import run_9_point_calibration
+from eyetrax.calibration.lissajous import run_lissajous_calibration  # alternative
+from eyetrax.filters import KalmanSmoother
 
 class GazeTracker:
     def __init__(self):
@@ -10,14 +13,15 @@ class GazeTracker:
         self.last_x = None
         self.last_y = None
         self.calibrated = False
+        self._smoother = KalmanSmoother()
 
     def calibrate(self):
-        from eyetrax import run_9_point_calibration
         # Pre-anchor the window at the top-left corner before eyetrax creates it,
         # preventing the slight rightward offset on macOS.
         cv2.namedWindow("Calibration", cv2.WINDOW_NORMAL)
         cv2.moveWindow("Calibration", 0, 0)
         run_9_point_calibration(self.estimator)
+        # run_lissajous_calibration(self.estimator)  # swap in for smoother coverage
         self.calibrated = True
 
     def get_coords(self):
@@ -37,8 +41,9 @@ class GazeTracker:
 
             x, y = self.estimator.predict([features])[0]
 
-            self.last_x = int(x)
-            self.last_y = int(y)
+            sx, sy = self._smoother.step(int(x), int(y))
+            self.last_x = sx
+            self.last_y = sy
 
             return (self.last_x, self.last_y)
 
