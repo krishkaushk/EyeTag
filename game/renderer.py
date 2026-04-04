@@ -46,7 +46,7 @@ class Renderer:
         label = self.font_small.render(f"WAVE PROGRESS", True, WHITE)
         self.screen.blit(label, (bar_x + bar_width // 2 - label.get_width() // 2, bar_y - 22))
 
-    def draw_gaze_cursor(self, gaze_x, gaze_y):
+    def draw_gaze_cursor(self, gaze_x, gaze_y, raw_y=None):
         # Draw a crosshair where the player is looking
         size = 12
         pygame.draw.line(self.screen, NEON_GREEN,

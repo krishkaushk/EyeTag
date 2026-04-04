@@ -9,6 +9,8 @@ from mediapipe.tasks.python.core.base_options import BaseOptions
 from pathlib import Path
 
 
+BLINK_THRESHOLD = 0.21
+
 _TASK_PATH = Path.home() / ".cache" / "eyetrax" / "mediapipe" / "face_landmarker.task"
 
 _options = vision.FaceLandmarkerOptions(
@@ -36,8 +38,7 @@ RIGHT_IRIS = [469, 470, 471, 472]
 LEFT_EAR_POINTS  = [362, 385, 387, 263, 373, 380]
 RIGHT_EAR_POINTS = [33,  160, 158, 133, 153, 144]
 
-# what counts as a blink?
-BLINK_THRESHOLD = 0.21
+
 
 
 def calculate_ear(landmarks, eye_points, image_w, image_h):

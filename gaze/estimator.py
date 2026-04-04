@@ -3,16 +3,18 @@
 import cv2
 from gaze.features import extract_features
 from gaze.calibration import Calibrator
-from eyetrax.filters import KalmanSmoother
+from gaze.smoother import EMAsmoother
 from game.config import SCREEN_WIDTH, SCREEN_HEIGHT
 
 class GazeTracker:
-    def __init__(self):
+    def __init__(self, alpha=0.5):
         self.cap = cv2.VideoCapture(0)
         self.model = None
         self.last_x = None
         self.last_y = None
-        self._smoother = KalmanSmoother()
+        self.raw_y = None
+        self._smoother = EMAsmoother(alpha)
+
 
     def calibrate(self, screen):
         calibrator = Calibrator(screen, self.cap)
@@ -33,6 +35,7 @@ class GazeTracker:
 
             
             if features is None or is_blinking:
+                self._smoother.reset()
                 return self._last_known()
 
             prediction = self.model.predict([features])
@@ -42,7 +45,10 @@ class GazeTracker:
             x = max(0, min(x, SCREEN_WIDTH))
             y = max(0, min(y, SCREEN_HEIGHT))
 
-            x, y = self._smoother.step(x, y)
+            self.raw_y = y
+            x, y = self._smoother.update(x, y)
+
+            print(f"RAW Y: {self.raw_y}  |  SMO Y: {y}")
 
             self.last_x = x
             self.last_y = y
