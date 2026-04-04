@@ -3,11 +3,11 @@
 import cv2
 from gaze.features import extract_features
 from gaze.calibration import Calibrator
-from gaze.smoother import EMAsmoother
+from gaze.smoother import EMAsmoother, ALPHA
 from game.config import SCREEN_WIDTH, SCREEN_HEIGHT
 
 class GazeTracker:
-    def __init__(self, alpha=0.5):
+    def __init__(self, alpha=ALPHA):
         self.cap = cv2.VideoCapture(0)
         self.model = None
         self.last_x = None

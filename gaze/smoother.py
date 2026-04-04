@@ -1,5 +1,6 @@
 # EMA smoother for gaze coordinates
 
+#ALPHA VALUE - change to change smoothness
 ALPHA = 0.5
 
 class EMAsmoother:
