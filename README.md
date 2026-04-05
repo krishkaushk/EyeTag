@@ -31,9 +31,7 @@ Raw gaze landmark detection has sub-pixel jitter that translates to cursor jitte
 x_smooth = α * x_raw + (1 − α) * x_prev
 ```
 
-Each new prediction is blended with the previous smoothed position. 
-
-α=0.5 means more weight on history than the new measurement, giving a smoother but slightly laggier cursor. To change, set `ALPHA` at the top of `gaze/smoother.py`.
+Each frame is blended with all previous history. At α=0.5, the current frame carries as much weight as every past frame combined and older frames fade out exponentially so nothing from more than ~7 frames ago meaningfully affects the output. To change, set `ALPHA` at the top of `gaze/smoother.py`.
 
 On tracking loss (e.g. face leaves frame), the smoother resets so it doesn't drag the cursor from a stale position when tracking resumes.
 
