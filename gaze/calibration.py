@@ -3,6 +3,7 @@
 import pygame
 import numpy as np
 import time
+import sys
 from sklearn.linear_model import Ridge
 from gaze.features import extract_features
 from game.config import SCREEN_WIDTH, SCREEN_HEIGHT
@@ -73,11 +74,14 @@ class Calibrator:
             # Draw the dot with progress animation
             self.draw_dot(screen_x, screen_y, progress, DURATION - elapsed)
 
-            # Handle quit event so window doesn't freeze
+            # Handle quit/escape
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
-                    return
+                    sys.exit()
+                if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                    pygame.quit()
+                    sys.exit()
 
             # Read webcam frame
             ret, frame = self.cap.read()
@@ -144,8 +148,11 @@ class Calibrator:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
-                    return None
+                    sys.exit()
                 if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        pygame.quit()
+                        sys.exit()
                     if event.key == pygame.K_SPACE:
                         waiting = False
 
@@ -159,7 +166,16 @@ class Calibrator:
                 (SCREEN_WIDTH//2 - countdown.get_width()//2,
                  SCREEN_HEIGHT//2 - countdown.get_height()//2))
             pygame.display.flip()
-            time.sleep(1)
+            end = time.time() + 1
+            while time.time() < end:
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        pygame.quit()
+                        sys.exit()
+                    if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                        pygame.quit()
+                        sys.exit()
+                time.sleep(0.01)
 
         # Loop through all 9 calibration points
         for i, (fx, fy) in enumerate(CALIBRATION_POINTS):
@@ -169,7 +185,16 @@ class Calibrator:
 
             # Show static dot before collection starts — gives eye time to travel there
             self.draw_dot(screen_x, screen_y, 1.0, 0)
-            time.sleep(0.8)
+            end = time.time() + 0.8
+            while time.time() < end:
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        pygame.quit()
+                        sys.exit()
+                    if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                        pygame.quit()
+                        sys.exit()
+                time.sleep(0.01)
 
             # Collect data for this dot
             self.collect_dot(screen_x, screen_y)
