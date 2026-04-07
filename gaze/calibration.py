@@ -4,12 +4,16 @@ import pygame
 import numpy as np
 import time
 import sys
-from sklearn.linear_model import Ridge
+import torch
+import torch.nn as nn
+from gaze.model import GazeNet
 from gaze.features import extract_features
 from game.config import SCREEN_WIDTH, SCREEN_HEIGHT
 
 DURATION = 2.0
-ALPHA_VAL = 0.2
+#defining epoch range for training -- CHANGE BELOW 
+EPOCH_RANGE = 500
+
 
 CALIBRATION_POINTS = [
     (0.1, 0.1),   # top left
@@ -101,19 +105,58 @@ class Calibrator:
 
 
 
-    #TRAINING    
+    #TRAINING
     def train(self):
-        X_array = np.array(self.X)  #(frame, 34)
-        Y_array = np.array(self.Y)  #(frame, 2)
+        X_array = np.array(self.X)  # shape: (num_samples, 22)
+        Y_array = np.array(self.Y)  # shape: (num_samples, 2)
 
         print(f"Training on {len(X_array)} samples...")
 
-        # Create and train the Ridge regression model
-        self.model = Ridge(alpha=ALPHA_VAL)
-        self.model.fit(X_array, Y_array)
+        # --- Step 1: Convert numpy arrays to PyTorch tensors ---
+        X_tensor = torch.tensor(X_array, dtype=torch.float32)  # (num_samples, 22)
+
+        # Shrink targets from pixel coords (e.g. 0-1440) down to 0-1
+        # so the network sees small, calm numbers instead of huge ones.
+        Y_norm = Y_array / [SCREEN_WIDTH, SCREEN_HEIGHT]
+        Y_tensor = torch.tensor(Y_norm, dtype=torch.float32)    # (num_samples, 2), values 0-1
+
+        # --- Step 2: Create the network ---
+        # GazeNet() builds the layers and initialises all weights to small random numbers.
+        model = GazeNet()
+
+        # --- Step 3: Define the loss function ---
+        # Mean Squared Error Loss
+        criterion = nn.MSELoss()
+
+        # --- Step 4: Define the optimizer ---
+        # Adam Optimizer 
+        optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+
+        # --- Step 5: Training loop ---
+        for epoch in range(EPOCH_RANGE):
+
+            # FORWARD PASS: feed the 22 features through all layers → get predicted (x, y)
+            predictions = model(X_tensor)
+
+            # COMPUTE LOSS: how wrong are the predictions?
+            loss = criterion(predictions, Y_tensor)
+
+            # BACKWARD PASS (backpropagation):
+            optimizer.zero_grad()  # clear gradients from the previous epoch — they accumulate by default
+            loss.backward()        # compute fresh gradients for this epoch
+
+            # WEIGHT UPDATE:
+            # The optimizer reads the gradients and nudges every weight by -lr * gradient.
+            # (Minus because we want to go downhill on the loss.)
+            optimizer.step()
+
+            # Print progress every 50 epochs so you can watch the loss fall
+            if (epoch + 1) % 50 == 0:
+                print(f"  Epoch {epoch+1:3d}/500 — loss: {loss.item():.2f}")
 
         print("Training complete")
-        return self.model
+        self.model = model
+        return model
     
 
 

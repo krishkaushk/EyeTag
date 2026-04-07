@@ -1,5 +1,6 @@
 # Estimates gaze for eye tracking with eyetrax
 
+import torch
 import cv2
 from gaze.features import extract_features
 from gaze.calibration import Calibrator
@@ -38,9 +39,17 @@ class GazeTracker:
                 self._smoother.reset()
                 return self._last_known()
 
-            prediction = self.model.predict([features])
-            x = int(prediction[0][0])
-            y = int(prediction[0][1])
+            # numpy (22,) → tensor (1, 22): unsqueeze adds the batch dimension
+            feature_tensor = torch.tensor(features, dtype=torch.float32).unsqueeze(0)
+
+            # no_grad: skip gradient tracking — we're predicting, not training
+            with torch.no_grad():
+                output = self.model(feature_tensor)  # tensor (1, 2)
+
+            # tensor (1, 2) → numpy, then scale back up from 0-1 → pixel coords
+            prediction = output.numpy()
+            x = int(prediction[0][0] * SCREEN_WIDTH)
+            y = int(prediction[0][1] * SCREEN_HEIGHT)
 
             x = max(0, min(x, SCREEN_WIDTH))
             y = max(0, min(y, SCREEN_HEIGHT))
