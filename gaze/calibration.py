@@ -12,7 +12,10 @@ from game.config import SCREEN_WIDTH, SCREEN_HEIGHT
 
 DURATION = 2.0
 #defining epoch range for training -- CHANGE BELOW 
-EPOCH_RANGE = 1000
+EPOCH_RANGE = 1500
+
+LEARNING = 0.01
+WEIGHTED_DECAY = 0
 
 
 CALIBRATION_POINTS = [
@@ -118,6 +121,7 @@ class Calibrator:
 
         # --- Step 2: Create the network ---
         # GazeNet() builds the layers and initialises all weights to small random numbers.
+        torch.manual_seed(42)
         model = GazeNet()
 
         # --- Step 3: Define the loss function ---
@@ -126,7 +130,7 @@ class Calibrator:
 
         # --- Step 4: Define the optimizer ---
         # Adam Optimizer 
-        optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+        optimizer = torch.optim.Adam(model.parameters(), lr = LEARNING, weight_decay=WEIGHTED_DECAY)
 
         # --- Step 5: Training loop ---
         for epoch in range(EPOCH_RANGE):
