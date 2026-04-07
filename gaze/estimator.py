@@ -46,10 +46,10 @@ class GazeTracker:
             with torch.no_grad():
                 output = self.model(feature_tensor)  # tensor (1, 2)
 
-            # tensor (1, 2) → numpy, then scale back up from 0-1 → pixel coords
+            # tensor (1, 2) → numpy [[x, y]] → plain ints
             prediction = output.numpy()
-            x = int(prediction[0][0] * SCREEN_WIDTH)
-            y = int(prediction[0][1] * SCREEN_HEIGHT)
+            x = int(prediction[0][0])
+            y = int(prediction[0][1])
 
             x = max(0, min(x, SCREEN_WIDTH))
             y = max(0, min(y, SCREEN_HEIGHT))

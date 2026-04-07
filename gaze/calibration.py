@@ -12,7 +12,7 @@ from game.config import SCREEN_WIDTH, SCREEN_HEIGHT
 
 DURATION = 2.0
 #defining epoch range for training -- CHANGE BELOW 
-EPOCH_RANGE = 500
+EPOCH_RANGE = 1000
 
 
 CALIBRATION_POINTS = [
@@ -114,11 +114,7 @@ class Calibrator:
 
         # --- Step 1: Convert numpy arrays to PyTorch tensors ---
         X_tensor = torch.tensor(X_array, dtype=torch.float32)  # (num_samples, 22)
-
-        # Shrink targets from pixel coords (e.g. 0-1440) down to 0-1
-        # so the network sees small, calm numbers instead of huge ones.
-        Y_norm = Y_array / [SCREEN_WIDTH, SCREEN_HEIGHT]
-        Y_tensor = torch.tensor(Y_norm, dtype=torch.float32)    # (num_samples, 2), values 0-1
+        Y_tensor = torch.tensor(Y_array, dtype=torch.float32)  # (num_samples, 2)
 
         # --- Step 2: Create the network ---
         # GazeNet() builds the layers and initialises all weights to small random numbers.
