@@ -1,7 +1,7 @@
 # EMA smoother for gaze coordinates
 
 #ALPHA VALUE - change to change smoothness
-ALPHA = 0.5
+ALPHA = 0.35
 
 class EMAsmoother:
     def __init__(self, ALPHA):

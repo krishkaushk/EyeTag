@@ -28,29 +28,49 @@ Blink frames (EAR < 0.21) are discarded from both training data and live inferen
 
 ### 3. Calibration (`gaze/calibration.py`)
 
-Before the game starts, 9 dots appear in a 3×3 grid across the screen. The player stares at each dot for ~2 seconds while the webcam captures frames. Each frame where the eyes are open becomes a labeled training sample:
+Before the game starts, **25 dots appear in a 5×5 grid** across the screen. For each dot:
+
+1. The dot appears and the player has **0.6 seconds** to move their eyes to it (nothing is collected yet — this prevents collecting frames where the eye is mid-travel)
+2. A shrinking ring animates for **1 second** while frames are collected
+3. Only frames where the eyes are open and the face is detected are kept
+
+Each collected frame becomes a labeled training sample:
 
 ```
 (22 eye features) → (screen_x, screen_y)
 ```
 
-After all 9 dots, roughly 500 labeled samples have been collected. The neural network trains on these samples immediately. The model is session-specific — it trains fresh every launch because head position and lighting change between sessions.
+The 5×5 grid gives dense spatial coverage — the gaps between calibration points are small enough that the network can interpolate reliably. Total calibration time is ~40 seconds.
 
-### 4. Neural Network
+Targets are **normalized to 0–1** before training (divided by screen width/height). This keeps the output scale consistent with the input features, which are already in the 0–1 range from MediaPipe. Without this, MSE on raw pixel values (up to 1920/1080) creates an uneven loss landscape.
 
-GazeNet is a small fully-connected feedforward neural network that learns the mapping from eye feature space to screen coordinate space.
+After training, an **accuracy map** is shown: each calibration point is drawn as a white dot, with a coloured arrow pointing to the model's mean prediction for that point. Green = accurate, red = large error. This lets you immediately see if specific regions trained poorly before starting the game.
+
+### 4. Neural Network (`gaze/model.py`)
+
+GazeNet is a deep fully-connected feedforward neural network mapping eye features to screen coordinates.
 
 **Architecture:**
 ```
-Input (22)  →  Linear(22→64)  →  ReLU  →  Linear(64→32)  →  ReLU  →  Linear(32→2)  →  Output (x, y)
+Input (22)
+  → Linear(22 → 256) → GELU
+  → Linear(256 → 256) → GELU
+  → Linear(256 → 128) → GELU
+  → Linear(128 → 64)  → GELU
+  → Linear(64 → 32)   → GELU
+  → Linear(32 → 2)
+  → Output (x, y)  [normalized 0–1]
 ```
 
-Each `Linear` layer computes `output = input × weights + bias`. The weight matrix for the first layer is shape (64, 22) — 64 neurons, each connected to all 22 inputs. This gives the model 64 different "views" of the eye feature vector to work with.
+**Why GELU instead of ReLU?**
 
-**Why ReLU activations?**
+ReLU (`max(0, x)`) is piecewise linear — a network built from ReLU layers can only produce a function made of flat linear segments stitched together. As the gaze moves across the screen, the predicted coordinate moves in rigid straight lines between breakpoints.
 
-Without activation functions, stacking linear layers is mathematically equivalent to a single linear layer. ReLU (`f(x) = max(0, x)`) introduces non-linearity by clipping negative values to zero. This breaks the linearity and allows the model to learn curved decision boundaries.
+GELU (`x · Φ(x)`, where Φ is the Gaussian CDF) is smooth and continuously differentiable everywhere. Stacking GELU layers produces a smooth curved function over the whole input space — the cursor flows naturally rather than snapping along straight edges. GELU is also used in GPT and BERT for the same reason.
 
+**Why deeper?**
+
+The 5-layer network (vs the original 2-layer) can learn more complex nonlinear relationships between iris position and screen coordinates. Each additional layer lets the model compose increasingly abstract representations of the eye state before mapping to a position.
 
 **Training loop:**
 
@@ -59,21 +79,18 @@ criterion = nn.MSELoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
 
 for epoch in range(1500):
-    predictions = model(X_tensor)       # forward pass
+    predictions = model(X_tensor)         # forward pass
     loss = criterion(predictions, Y_tensor)
-    optimizer.zero_grad()               # clear stale gradients
-    loss.backward()                     # backpropagation
-    optimizer.step()                    # weight update
+    optimizer.zero_grad()                 # clear stale gradients
+    loss.backward()                       # backpropagation
+    optimizer.step()                      # weight update
 ```
 
-- **MSELoss** — Mean Squared Error: `mean((predicted_x - actual_x)² + (predicted_y - actual_y)²)`. Appropriate for continuous coordinate regression.
-- **Adam optimizer** — adapts the learning rate per parameter using first and second moment estimates of the gradients. Converges faster than SGD on small datasets.
-- **1500 epochs** — the entire dataset (~500 samples) passes through the network 1500 times. With a network this small and a dataset this size, this completes in under two seconds on CPU.
-- **Backpropagation** — after each forward pass, PyTorch automatically differentiates the loss through every layer via the chain rule, computing the gradient of the loss with respect to each weight. The optimizer then nudges each weight in the direction that reduces the loss.
+- **MSELoss** — Mean Squared Error on normalized coordinates. Appropriate for continuous coordinate regression.
+- **Adam optimizer** — adapts the learning rate per parameter using moment estimates of the gradients. Converges faster than SGD on small datasets.
+- **Backpropagation** — PyTorch differentiates the loss through every layer via the chain rule, computing gradients for every weight. The optimizer nudges each weight in the direction that reduces the loss.
 
-
-
-### 6. EMA Smoothing (`gaze/smoother.py`)
+### 5. EMA Smoothing (`gaze/smoother.py`)
 
 MediaPipe landmark detection has sub-pixel jitter that translates directly to cursor jitter. An **Exponential Moving Average** smooths the output:
 
@@ -81,7 +98,7 @@ MediaPipe landmark detection has sub-pixel jitter that translates directly to cu
 x_smooth = α × x_raw + (1 − α) × x_prev
 ```
 
-At α=0.5, the current frame has the same total weight as all previous frames combined. Older frames decay exponentially — nothing from more than ~7 frames ago meaningfully affects the output. On tracking loss (face leaves frame), the smoother resets so the cursor doesn't drag from a stale position.
+At α=0.35, each frame blends 35% new prediction with 65% history. Older frames decay exponentially — this reduces jitter from frame-to-frame noise without adding noticeable lag. On tracking loss (face leaves frame), the smoother resets so the cursor doesn't drag from a stale position.
 
 Tunable via `ALPHA` at the top of `gaze/smoother.py`.
 
@@ -100,6 +117,7 @@ Requires a webcam. Tested on macOS.
 - Keep your head still throughout
 - Look at the center of each dot, not around it
 - Even lighting improves landmark detection accuracy
+- If accuracy looks poor on the map after calibration, press C during the game to recalibrate
 
 ---
 
@@ -112,7 +130,3 @@ Requires a webcam. Tested on macOS.
 | **OpenCV** | Webcam capture and frame preprocessing |
 | **pygame** | Game loop, rendering, calibration UI |
 | **NumPy** | Feature vector construction, array ops |
-
-
-
-

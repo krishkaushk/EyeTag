@@ -13,19 +13,21 @@ class GazeNet(nn.Module):
         super().__init__()
 
         self.net = nn.Sequential(
-            # --- LAYER 1 ---
-            nn.Linear(22, 64),
+            nn.Linear(22, 256),
+            nn.GELU(),
 
-            # --- ACTIVATION 1 ---
-            nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.GELU(),
 
-            # --- LAYER 2 ---
+            nn.Linear(256, 128),
+            nn.GELU(),
+
+            nn.Linear(128, 64),
+            nn.GELU(),
+
             nn.Linear(64, 32),
+            nn.GELU(),
 
-            # --- ACTIVATION 2 ---
-            nn.ReLU(),
-
-            # --- OUTPUT LAYER ---           
             nn.Linear(32, 2),
         )
 
