@@ -1,6 +1,7 @@
 # gets eye features from mediapipe
 
 import time
+import urllib.request
 import cv2
 import numpy as np
 import mediapipe as mp
@@ -12,6 +13,13 @@ from pathlib import Path
 BLINK_THRESHOLD = 0.21
 
 _TASK_PATH = Path.home() / ".cache" / "eyetrax" / "mediapipe" / "face_landmarker.task"
+_MODEL_URL = "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task"
+
+if not _TASK_PATH.exists():
+    print("Downloading face landmark model (~29MB, one time only)...")
+    _TASK_PATH.parent.mkdir(parents=True, exist_ok=True)
+    urllib.request.urlretrieve(_MODEL_URL, _TASK_PATH)
+    print("Download complete.")
 
 _options = vision.FaceLandmarkerOptions(
     base_options=BaseOptions(model_asset_path=str(_TASK_PATH)),
